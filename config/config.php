@@ -1,7 +1,7 @@
 <?php
 // Konfigurasi umum aplikasi
 define('APP_NAME', 'Inventaris Perpustakaan');
-define('APP_URL', 'http://localhost/inventaris-peminjaman/');
+define('APP_URL', 'http://localhost:8080');
 define('BASE_PATH', dirname(__DIR__));
 
 // Konfigurasi database

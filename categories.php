@@ -3,13 +3,20 @@ session_start();
 require_once 'includes/header.php';
 require_once 'config/database.php';
 
+// Redirect jika belum login
+if (!is_logged_in()) {
+    redirect('login.php');
+}
+
 $database = new Database();
 $db = $database->getConnection();
 
 $action = $_GET['action'] ?? 'list';
 $id = $_GET['id'] ?? null;
 
+// Handle CRUD operations
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validasi CSRF token
     if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
         set_flash_message('error', 'Token tidak valid');
         redirect('categories.php');
@@ -17,15 +24,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     try {
         if (isset($_POST['add'])) {
+            // Add new category
             $name = sanitize_input($_POST['name']);
             $description = sanitize_input($_POST['description']);
             
+            // Cek duplikasi nama
             $check_query = "SELECT COUNT(*) FROM categories WHERE name = ?";
             $check_stmt = $db->prepare($check_query);
             $check_stmt->execute([$name]);
             
             if ($check_stmt->fetchColumn() > 0) {
                 set_flash_message('error', 'Kategori dengan nama tersebut sudah ada');
+                redirect('categories.php?action=add');
             }
             
             $query = "INSERT INTO categories (name, description) VALUES (?, ?)";
@@ -35,18 +45,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $category_id = $db->lastInsertId();
             log_activity('create', 'categories', $category_id, "Menambahkan kategori baru: $name");
             set_flash_message('success', 'Kategori berhasil ditambahkan');
+            redirect('categories.php');
             
         } elseif (isset($_POST['update'])) {
+            // Update category
             $id = (int)$_POST['id'];
             $name = sanitize_input($_POST['name']);
             $description = sanitize_input($_POST['description']);
             
+            // Cek duplikasi nama (kecuali untuk record yang sedang diupdate)
             $check_query = "SELECT COUNT(*) FROM categories WHERE name = ? AND id != ?";
             $check_stmt = $db->prepare($check_query);
             $check_stmt->execute([$name, $id]);
             
             if ($check_stmt->fetchColumn() > 0) {
                 set_flash_message('error', 'Kategori dengan nama tersebut sudah ada');
+                redirect('categories.php?action=edit&id=' . $id);
             }
             
             $query = "UPDATE categories SET name = ?, description = ? WHERE id = ?";
@@ -55,10 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             log_activity('update', 'categories', $id, "Memperbarui kategori: $name");
             set_flash_message('success', 'Kategori berhasil diperbarui');
+            redirect('categories.php');
             
         } elseif (isset($_POST['delete'])) {
+            // Delete category
             $id = (int)$_POST['id'];
             
+            // Cek apakah kategori masih digunakan
             $check_query = "SELECT COUNT(*) FROM items WHERE category_id = ? AND is_active = 1";
             $check_stmt = $db->prepare($check_query);
             $check_stmt->execute([$id]);
@@ -73,32 +90,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 log_activity('delete', 'categories', $id, 'Menghapus kategori');
                 set_flash_message('success', 'Kategori berhasil dihapus');
             }
+            redirect('categories.php');
         }
     } catch (PDOException $e) {
         set_flash_message('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        redirect('categories.php');
     }
 }
 
-$current_category = null;
+// Get single category for edit
+$category = null;
 if ($action === 'edit' && $id) {
     try {
         $query = "SELECT * FROM categories WHERE id = ?";
         $stmt = $db->prepare($query);
         $stmt->execute([$id]);
-        $current_category = $stmt->fetch();
+        $category = $stmt->fetch();
         
-        if (!$current_category) {
-            $_SESSION['flash_error'] = 'Kategori tidak ditemukan';
-            header('Location: categories.php');
-            exit();
+        if (!$category) {
+            set_flash_message('error', 'Kategori tidak ditemukan');
+            redirect('categories.php');
         }
     } catch (PDOException $e) {
-        $_SESSION['flash_error'] = 'Gagal memuat data kategori';
-        header('Location: categories.php');
-        exit();
+        set_flash_message('error', 'Gagal memuat data kategori');
+        redirect('categories.php');
     }
 }
 
+// Pagination
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $search = $_GET['search'] ?? '';
 $items_per_page = ITEMS_PER_PAGE;
@@ -114,6 +133,7 @@ if ($search) {
 
 $where_clause = $where_conditions ? "WHERE " . implode(" AND ", $where_conditions) : "";
 
+// Count total categories
 try {
     $count_query = "SELECT COUNT(*) as total FROM categories $where_clause";
     $count_stmt = $db->prepare($count_query);
@@ -122,6 +142,7 @@ try {
     
     $pagination = get_pagination($total_items, $page, $items_per_page);
     
+    // Get categories for current page
     $query = "SELECT c.*, COUNT(i.id) as book_count 
               FROM categories c 
               LEFT JOIN items i ON c.id = i.category_id AND i.is_active = 1 
@@ -146,6 +167,7 @@ try {
 </div>
 
 <?php if ($action === 'list'): ?>
+<!-- Search -->
 <div class="bg-white rounded-lg shadow-md p-6 mb-6">
     <form method="GET" class="flex gap-4">
         <div class="flex-1">
@@ -153,9 +175,9 @@ try {
                    name="search" 
                    placeholder="Cari kategori..." 
                    value="<?php echo htmlspecialchars($search); ?>"
-                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
         </div>
-        <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             <i class="fas fa-search mr-2"></i>Cari
         </button>
         <a href="categories.php" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
@@ -164,15 +186,17 @@ try {
     </form>
 </div>
 
+<!-- Action Buttons -->
 <div class="flex justify-between items-center mb-6">
     <div class="text-sm text-gray-600">
         Menampilkan <?php echo count($categories); ?> dari <?php echo number_format($total_items); ?> kategori
     </div>
-    <a href="categories.php?action=add" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+    <a href="categories.php?action=add" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
         <i class="fas fa-plus mr-2"></i>Tambah Kategori
     </a>
 </div>
 
+<!-- Categories Table -->
 <div class="bg-white rounded-lg shadow-md overflow-hidden">
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -196,16 +220,20 @@ try {
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                             <?php echo $category['book_count']; ?> buku
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div class="flex space-x-2">
+                            <a href="categories.php?action=edit&id=<?php echo $category['id']; ?>" 
+                               class="text-blue-600 hover:text-blue-900">
+                                <i class="fas fa-edit"></i>
+                            </a>
                             <form method="POST" style="display: inline;" onsubmit="return confirmDelete('Apakah Anda yakin ingin menghapus kategori ini?')">
                                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                 <input type="hidden" name="id" value="<?php echo $category['id']; ?>">
-                                <button type="submit" name="delete" class="text-rose-600 hover:text-rose-900">
+                                <button type="submit" name="delete" class="text-red-600 hover:text-red-900">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>
@@ -218,6 +246,7 @@ try {
     </div>
 </div>
 
+<!-- Pagination -->
 <?php if ($pagination['total_pages'] > 1): ?>
 <div class="flex items-center justify-between mt-6">
     <div class="text-sm text-gray-700">
@@ -233,7 +262,7 @@ try {
         
         <?php for ($i = max(1, $page - 2); $i <= min($pagination['total_pages'], $page + 2); $i++): ?>
         <a href="categories.php?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>" 
-           class="px-3 py-2 <?php echo $i == $page ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'; ?> rounded-lg hover:bg-indigo-700 transition-colors">
+           class="px-3 py-2 <?php echo $i == $page ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'; ?> rounded-lg hover:bg-blue-700 transition-colors">
             <?php echo $i; ?>
         </a>
         <?php endfor; ?>
@@ -249,6 +278,7 @@ try {
 <?php endif; ?>
 
 <?php elseif ($action === 'add' || $action === 'edit'): ?>
+<!-- Add/Edit Form -->
 <div class="bg-white rounded-lg shadow-md p-6">
     <h2 class="text-2xl font-bold text-gray-900 mb-6">
         <?php echo $action === 'add' ? 'Tambah Kategori Baru' : 'Edit Kategori'; ?>
@@ -257,7 +287,7 @@ try {
     <form method="POST" class="space-y-6">
         <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
         <?php if ($action === 'edit'): ?>
-        <input type="hidden" name="id" value="<?php echo $current_category['id']; ?>">
+        <input type="hidden" name="id" value="<?php echo $category['id']; ?>">
         <?php endif; ?>
         
         <div>
@@ -265,8 +295,8 @@ try {
             <input type="text" 
                    name="name" 
                    id="name" 
-                   value="<?php echo htmlspecialchars($current_category['name'] ?? ''); ?>"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                   value="<?php echo htmlspecialchars($category['name'] ?? ''); ?>"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                    required
                    placeholder="Masukkan nama kategori">
         </div>
@@ -276,8 +306,8 @@ try {
             <textarea name="description" 
                       id="description" 
                       rows="4"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Deskripsi singkat tentang kategori ini..."><?php echo htmlspecialchars($current_category['description'] ?? ''); ?></textarea>
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Deskripsi singkat tentang kategori ini..."><?php echo htmlspecialchars($category['description'] ?? ''); ?></textarea>
         </div>
         
         <div class="flex justify-end space-x-3 pt-6">
@@ -286,7 +316,7 @@ try {
             </a>
             <button type="submit" 
                     name="<?php echo $action; ?>" 
-                    class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                 <i class="fas fa-save mr-2"></i><?php echo $action === 'add' ? 'Simpan' : 'Update'; ?>
             </button>
         </div>

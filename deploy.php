@@ -1,6 +1,10 @@
 <?php
+// Simple deployment script for the library system
+// This script sets up the basic structure and creates initial data
+
 echo "=== Library System Deployment Script ===\n\n";
 
+// Check PHP version
 if (version_compare(PHP_VERSION, '8.0.0', '<')) {
     echo "❌ Error: PHP 8.0 or higher is required. Current version: " . PHP_VERSION . "\n";
     exit(1);
@@ -8,6 +12,7 @@ if (version_compare(PHP_VERSION, '8.0.0', '<')) {
 
 echo "✅ PHP version check passed (" . PHP_VERSION . ")\n";
 
+// Check required extensions
 $required_extensions = ['pdo', 'pdo_mysql', 'mbstring', 'openssl', 'json'];
 $missing_extensions = [];
 
@@ -25,6 +30,7 @@ if (!empty($missing_extensions)) {
 
 echo "✅ All required PHP extensions are loaded\n";
 
+// Check if database configuration exists
 if (!file_exists('config/database.php')) {
     echo "❌ Error: Database configuration file not found\n";
     echo "Please create config/database.php with your database credentials\n";
@@ -33,6 +39,7 @@ if (!file_exists('config/database.php')) {
 
 echo "✅ Database configuration file found\n";
 
+// Check if database schema exists
 if (!file_exists('database.sql')) {
     echo "❌ Error: Database schema file not found\n";
     echo "Please ensure database.sql is in the root directory\n";
@@ -41,6 +48,7 @@ if (!file_exists('database.sql')) {
 
 echo "✅ Database schema file found\n";
 
+// Check write permissions
 $writable_dirs = ['uploads', 'logs'];
 $permission_errors = [];
 
@@ -65,6 +73,7 @@ if (!empty($permission_errors)) {
 
 echo "✅ Directory permissions check passed\n";
 
+// Create .htaccess if not exists
 if (!file_exists('.htaccess')) {
     $htaccess_content = "RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -96,14 +105,17 @@ Header set Referrer-Policy \"strict-origin-when-cross-origin\"
     echo "✅ .htaccess file already exists\n";
 }
 
+// Test database connection
 try {
     require_once 'config/database.php';
     $database = new Database();
     $db = $database->getConnection();
     
+    // Test query
     $stmt = $db->query("SELECT 1");
     echo "✅ Database connection test passed\n";
     
+    // Check if tables exist
     $stmt = $db->query("SHOW TABLES");
     $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
     
@@ -120,6 +132,7 @@ try {
     exit(1);
 }
 
+// Create initial directories structure
 $directories = [
     'uploads/books',
     'uploads/users',
@@ -137,6 +150,7 @@ foreach ($directories as $dir) {
     }
 }
 
+// Set proper permissions
 $files_to_protect = ['.env', 'config/config.php', 'config/database.php'];
 foreach ($files_to_protect as $file) {
     if (file_exists($file)) {
@@ -144,8 +158,10 @@ foreach ($files_to_protect as $file) {
     }
 }
 
+// Final checks
 echo "\n=== Final System Check ===\n";
 
+// Check if login page is accessible
 $login_url = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . '/login.php';
 echo "✅ System ready for deployment\n";
 echo "✅ You can now access the application at: $login_url\n";
@@ -162,5 +178,6 @@ echo "3. Set up SSL certificate for production\n";
 echo "4. Configure backup system\n";
 echo "5. Monitor system logs regularly\n";
 
+// Create deployment marker
 file_put_contents('.deployed', date('Y-m-d H:i:s'));
 ?>

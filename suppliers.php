@@ -3,6 +3,7 @@ session_start();
 require_once 'includes/header.php';
 require_once 'config/database.php';
 
+// Redirect jika belum login atau bukan admin
 if (!is_logged_in() || !has_role('admin')) {
     set_flash_message('error', 'Akses ditolak. Anda tidak memiliki izin untuk mengakses halaman ini.');
     redirect('index.php');
@@ -14,7 +15,9 @@ $db = $database->getConnection();
 $action = $_GET['action'] ?? 'list';
 $id = $_GET['id'] ?? null;
 
+// Handle CRUD operations
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validasi CSRF token
     if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
         set_flash_message('error', 'Token tidak valid');
         redirect('suppliers.php');
@@ -22,12 +25,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     try {
         if (isset($_POST['add'])) {
+            // Add new supplier
             $name = sanitize_input($_POST['name']);
             $contact_person = sanitize_input($_POST['contact_person']);
             $phone = sanitize_input($_POST['phone']);
             $email = sanitize_input($_POST['email']);
             $address = sanitize_input($_POST['address']);
             
+            // Validasi input
             if (empty($name)) {
                 set_flash_message('error', 'Nama supplier harus diisi');
                 redirect('suppliers.php?action=add');
@@ -45,8 +50,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $supplier_id = $db->lastInsertId();
             log_activity('create', 'suppliers', $supplier_id, "Menambahkan supplier baru: $name");
             set_flash_message('success', 'Supplier berhasil ditambahkan');
+            redirect('suppliers.php');
             
         } elseif (isset($_POST['update'])) {
+            // Update supplier
             $id = (int)$_POST['id'];
             $name = sanitize_input($_POST['name']);
             $contact_person = sanitize_input($_POST['contact_person']);
@@ -54,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $email = sanitize_input($_POST['email']);
             $address = sanitize_input($_POST['address']);
             
+            // Validasi input
             if (empty($name)) {
                 set_flash_message('error', 'Nama supplier harus diisi');
                 redirect('suppliers.php?action=edit&id=' . $id);
@@ -73,8 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('suppliers.php');
             
         } elseif (isset($_POST['delete'])) {
+            // Delete supplier
             $id = (int)$_POST['id'];
             
+            // Cek apakah supplier masih digunakan
             $check_query = "SELECT COUNT(*) FROM items WHERE supplier_id = ? AND is_active = 1";
             $check_stmt = $db->prepare($check_query);
             $check_stmt->execute([$id]);
@@ -89,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 log_activity('delete', 'suppliers', $id, 'Menghapus supplier');
                 set_flash_message('success', 'Supplier berhasil dihapus');
             }
+            redirect('suppliers.php');
         }
     } catch (PDOException $e) {
         set_flash_message('error', 'Terjadi kesalahan: ' . $e->getMessage());
@@ -96,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Get single supplier for edit
 $supplier = null;
 if ($action === 'edit' && $id) {
     try {
@@ -114,6 +126,7 @@ if ($action === 'edit' && $id) {
     }
 }
 
+// Pagination
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $search = $_GET['search'] ?? '';
 $items_per_page = ITEMS_PER_PAGE;
@@ -129,6 +142,7 @@ if ($search) {
 
 $where_clause = $where_conditions ? "WHERE " . implode(" AND ", $where_conditions) : "";
 
+// Count total suppliers
 try {
     $count_query = "SELECT COUNT(*) as total FROM suppliers $where_clause";
     $count_stmt = $db->prepare($count_query);
@@ -137,6 +151,7 @@ try {
     
     $pagination = get_pagination($total_items, $page, $items_per_page);
     
+    // Get suppliers for current page
     $query = "SELECT s.*, COUNT(i.id) as item_count 
               FROM suppliers s 
               LEFT JOIN items i ON s.id = i.supplier_id AND i.is_active = 1 
@@ -161,6 +176,7 @@ try {
 </div>
 
 <?php if ($action === 'list'): ?>
+<!-- Search -->
 <div class="bg-white rounded-lg shadow-md p-6 mb-6">
     <form method="GET" class="flex gap-4">
         <div class="flex-1">
@@ -168,9 +184,9 @@ try {
                    name="search" 
                    placeholder="Cari supplier..." 
                    value="<?php echo htmlspecialchars($search); ?>"
-                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
         </div>
-        <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             <i class="fas fa-search mr-2"></i>Cari
         </button>
         <a href="suppliers.php" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
@@ -179,15 +195,17 @@ try {
     </form>
 </div>
 
+<!-- Action Buttons -->
 <div class="flex justify-between items-center mb-6">
     <div class="text-sm text-gray-600">
         Menampilkan <?php echo count($suppliers); ?> dari <?php echo number_format($total_items); ?> supplier
     </div>
-    <a href="suppliers.php?action=add" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+    <a href="suppliers.php?action=add" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
         <i class="fas fa-plus mr-2"></i>Tambah Supplier
     </a>
 </div>
 
+<!-- Suppliers Table -->
 <div class="bg-white rounded-lg shadow-md overflow-hidden">
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -218,20 +236,24 @@ try {
                         <?php echo htmlspecialchars($supplier['email'] ?: '-'); ?>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                             <?php echo $supplier['item_count']; ?> buku
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div class="flex space-x-2">
+                            <a href="suppliers.php?action=edit&id=<?php echo $supplier['id']; ?>" 
+                               class="text-blue-600 hover:text-blue-900">
+                                <i class="fas fa-edit"></i>
+                            </a>
                             <a href="suppliers.php?action=view&id=<?php echo $supplier['id']; ?>" 
-                               class="text-emerald-600 hover:text-emerald-900">
+                               class="text-green-600 hover:text-green-900">
                                 <i class="fas fa-eye"></i>
                             </a>
                             <form method="POST" style="display: inline;" onsubmit="return confirmDelete('Apakah Anda yakin ingin menghapus supplier ini?')">
                                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                 <input type="hidden" name="id" value="<?php echo $supplier['id']; ?>">
-                                <button type="submit" name="delete" class="text-rose-600 hover:text-rose-900">
+                                <button type="submit" name="delete" class="text-red-600 hover:text-red-900">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>
@@ -244,6 +266,7 @@ try {
     </div>
 </div>
 
+<!-- Pagination -->
 <?php if ($pagination['total_pages'] > 1): ?>
 <div class="flex items-center justify-between mt-6">
     <div class="text-sm text-gray-700">
@@ -259,7 +282,7 @@ try {
         
         <?php for ($i = max(1, $page - 2); $i <= min($pagination['total_pages'], $page + 2); $i++): ?>
         <a href="suppliers.php?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>" 
-           class="px-3 py-2 <?php echo $i == $page ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'; ?> rounded-lg hover:bg-indigo-700 transition-colors">
+           class="px-3 py-2 <?php echo $i == $page ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'; ?> rounded-lg hover:bg-blue-700 transition-colors">
             <?php echo $i; ?>
         </a>
         <?php endfor; ?>
@@ -275,6 +298,7 @@ try {
 <?php endif; ?>
 
 <?php elseif ($action === 'add' || $action === 'edit'): ?>
+<!-- Add/Edit Form -->
 <div class="bg-white rounded-lg shadow-md p-6">
     <h2 class="text-2xl font-bold text-gray-900 mb-6">
         <?php echo $action === 'add' ? 'Tambah Supplier Baru' : 'Edit Supplier'; ?>
@@ -293,7 +317,7 @@ try {
                        name="name" 
                        id="name" 
                        value="<?php echo htmlspecialchars($supplier['name'] ?? ''); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                        required
                        placeholder="Masukkan nama supplier">
             </div>
@@ -304,7 +328,7 @@ try {
                        name="contact_person" 
                        id="contact_person" 
                        value="<?php echo htmlspecialchars($supplier['contact_person'] ?? ''); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                        placeholder="Nama kontak person">
             </div>
             
@@ -314,7 +338,7 @@ try {
                        name="phone" 
                        id="phone" 
                        value="<?php echo htmlspecialchars($supplier['phone'] ?? ''); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                        placeholder="Nomor telepon">
             </div>
             
@@ -324,7 +348,7 @@ try {
                        name="email" 
                        id="email" 
                        value="<?php echo htmlspecialchars($supplier['email'] ?? ''); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                        placeholder="Email supplier">
             </div>
             
@@ -333,7 +357,7 @@ try {
                 <textarea name="address" 
                           id="address" 
                           rows="3"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Alamat lengkap supplier..."><?php echo htmlspecialchars($supplier['address'] ?? ''); ?></textarea>
             </div>
         </div>
@@ -344,7 +368,7 @@ try {
             </a>
             <button type="submit" 
                     name="<?php echo $action; ?>" 
-                    class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                 <i class="fas fa-save mr-2"></i><?php echo $action === 'add' ? 'Simpan' : 'Update'; ?>
             </button>
         </div>
@@ -352,7 +376,9 @@ try {
 </div>
 
 <?php elseif ($action === 'view' && $id): ?>
+<!-- View Supplier Details -->
 <?php
+// Get supplier details
 if (!$supplier) {
     try {
         $query = "SELECT s.*, COUNT(i.id) as item_count 
@@ -414,7 +440,7 @@ if (!$supplier) {
             
             <div>
                 <h3 class="text-sm font-medium text-gray-500">Jumlah Buku</h3>
-                <span class="mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                <span class="mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                     <?php echo $supplier['item_count']; ?> buku
                 </span>
             </div>
@@ -432,6 +458,10 @@ if (!$supplier) {
     </div>
     
     <div class="flex justify-end space-x-3 mt-8 pt-6 border-t">
+        <a href="suppliers.php?action=edit&id=<?php echo $supplier['id']; ?>" 
+           class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <i class="fas fa-edit mr-2"></i>Edit
+        </a>
         <a href="suppliers.php" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
             <i class="fas fa-arrow-left mr-2"></i>Kembali
         </a>
