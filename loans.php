@@ -3,7 +3,6 @@ session_start();
 require_once 'includes/header.php';
 require_once 'config/database.php';
 
-// Redirect jika belum login
 if (!is_logged_in()) {
     redirect('login.php');
 }
@@ -14,9 +13,7 @@ $db = $database->getConnection();
 $action = $_GET['action'] ?? 'list';
 $id = $_GET['id'] ?? null;
 
-// Handle CRUD operations
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Validasi CSRF token
     if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
         set_flash_message('error', 'Token tidak valid');
         redirect('loans.php');
@@ -24,20 +21,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     try {
         if (isset($_POST['add'])) {
-            // Add new loan
             $user_id = (int)$_POST['user_id'];
             $item_id = (int)$_POST['item_id'];
             $loan_date = $_POST['loan_date'];
             $due_date = $_POST['due_date'];
             $notes = sanitize_input($_POST['notes']);
             
-            // Validasi input
             if (empty($user_id) || empty($item_id) || empty($loan_date) || empty($due_date)) {
                 set_flash_message('error', 'Semua field bertanda * harus diisi');
                 redirect('loans.php?action=add');
             }
             
-            // Cek ketersediaan buku
             $check_query = "SELECT quantity_available FROM items WHERE id = ? AND is_active = 1";
             $check_stmt = $db->prepare($check_query);
             $check_stmt->execute([$item_id]);
@@ -52,7 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 set_flash_message('error', 'Buku tidak tersedia untuk dipinjam');
             }
             
-            // Cek apakah user masih memiliki pinjaman yang belum dikembalikan untuk buku yang sama
             $check_loan_query = "SELECT COUNT(*) FROM loans WHERE user_id = ? AND item_id = ? AND status = 'dipinjam'";
             $check_loan_stmt = $db->prepare($check_loan_query);
             $check_loan_stmt->execute([$user_id, $item_id]);
@@ -61,10 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 set_flash_message('error', 'User masih memiliki pinjaman aktif untuk buku ini');
             }
             
-            // Generate loan code
             $loan_code = 'LN' . date('Ymd') . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
             
-            // Insert loan
             $query = "INSERT INTO loans (loan_code, user_id, item_id, loan_date, due_date, notes) 
                       VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $db->prepare($query);
@@ -72,7 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $loan_id = $db->lastInsertId();
             
-            // Update quantity_available
             $update_query = "UPDATE items SET quantity_available = quantity_available - 1 WHERE id = ?";
             $update_stmt = $db->prepare($update_query);
             $update_stmt->execute([$item_id]);
@@ -81,13 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             set_flash_message('success', 'Peminjaman berhasil dicatat');
             
         } elseif (isset($_POST['update'])) {
-            // Update loan (hanya untuk notes dan tanggal)
             $id = (int)$_POST['id'];
             $loan_date = $_POST['loan_date'];
             $due_date = $_POST['due_date'];
             $notes = sanitize_input($_POST['notes']);
             
-            // Get current loan data
             $get_query = "SELECT * FROM loans WHERE id = ?";
             $get_stmt = $db->prepare($get_query);
             $get_stmt->execute([$id]);
@@ -98,7 +86,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('loans.php');
             }
             
-            // Update loan
             $query = "UPDATE loans SET loan_date = ?, due_date = ?, notes = ? WHERE id = ?";
             $stmt = $db->prepare($query);
             $stmt->execute([$loan_date, $due_date, $notes, $id]);
@@ -108,10 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('loans.php');
             
         } elseif (isset($_POST['delete'])) {
-            // Delete loan (only if not returned yet)
             $id = (int)$_POST['id'];
             
-            // Get loan data
             $get_query = "SELECT l.*, i.title FROM loans l JOIN items i ON l.item_id = i.id WHERE l.id = ?";
             $get_stmt = $db->prepare($get_query);
             $get_stmt->execute([$id]);
@@ -125,12 +110,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 set_flash_message('error', 'Peminjaman yang sudah dikembalikan tidak dapat dihapus');
             }
             
-            // Return the book quantity
             $update_query = "UPDATE items SET quantity_available = quantity_available + 1 WHERE id = ?";
             $update_stmt = $db->prepare($update_query);
             $update_stmt->execute([$loan['item_id']]);
             
-            // Delete loan
             $query = "DELETE FROM loans WHERE id = ?";
             $stmt = $db->prepare($query);
             $stmt->execute([$id]);
@@ -144,7 +127,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get users and items for dropdown
 $users_list = [];
 $items_list = [];
 
@@ -160,7 +142,6 @@ try {
     set_flash_message('error', 'Gagal memuat data: ' . $e->getMessage());
 }
 
-// Get single loan for edit
 $loan = null;
 if ($action === 'edit' && $id) {
     try {
@@ -178,7 +159,6 @@ if ($action === 'edit' && $id) {
             redirect('loans.php');
         }
         
-        // Prevent editing returned loans
         if ($loan['status'] === 'dikembalikan') {
             set_flash_message('error', 'Peminjaman yang sudah dikembalikan tidak dapat diedit');
             redirect('loans.php');
@@ -189,7 +169,6 @@ if ($action === 'edit' && $id) {
     }
 }
 
-// Pagination
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $search = $_GET['search'] ?? '';
 $status_filter = $_GET['status'] ?? '';
@@ -211,7 +190,6 @@ if ($status_filter) {
 
 $where_clause = $where_conditions ? "WHERE " . implode(" AND ", $where_conditions) : "";
 
-// Count total loans
 try {
     $count_query = "SELECT COUNT(*) as total FROM loans l 
                     JOIN users u ON l.user_id = u.id 
@@ -223,7 +201,6 @@ try {
     
     $pagination = get_pagination($total_items, $page, $items_per_page);
     
-    // Get loans for current page
     $query = "SELECT l.*, u.username, u.full_name, i.title, i.barcode 
               FROM loans l 
               JOIN users u ON l.user_id = u.id 
@@ -248,7 +225,6 @@ try {
 </div>
 
 <?php if ($action === 'list'): ?>
-<!-- Search and Filter -->
 <div class="bg-white rounded-lg shadow-md p-6 mb-6">
     <form method="GET" class="flex flex-wrap gap-4">
         <div class="flex-1 min-w-48">
@@ -256,10 +232,10 @@ try {
                    name="search" 
                    placeholder="Cari berdasarkan kode, user, atau judul buku..." 
                    value="<?php echo htmlspecialchars($search); ?>"
-                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
         </div>
         <div class="min-w-32">
-            <select name="status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <select name="status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                 <option value="">Semua Status</option>
                 <option value="dipinjam" <?php echo $status_filter === 'dipinjam' ? 'selected' : ''; ?>>Dipinjam</option>
                 <option value="dikembalikan" <?php echo $status_filter === 'dikembalikan' ? 'selected' : ''; ?>>Dikembalikan</option>
@@ -267,7 +243,7 @@ try {
                 <option value="hilang" <?php echo $status_filter === 'hilang' ? 'selected' : ''; ?>>Hilang</option>
             </select>
         </div>
-        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
             <i class="fas fa-search mr-2"></i>Cari
         </button>
         <a href="loans.php" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
@@ -276,17 +252,15 @@ try {
     </form>
 </div>
 
-<!-- Action Buttons -->
 <div class="flex justify-between items-center mb-6">
     <div class="text-sm text-gray-600">
         Menampilkan <?php echo count($loans); ?> dari <?php echo number_format($total_items); ?> peminjaman
     </div>
-    <a href="loans.php?action=add" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+    <a href="loans.php?action=add" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
         <i class="fas fa-plus mr-2"></i>Tambah Peminjaman
     </a>
 </div>
 
-<!-- Loans Table -->
 <div class="bg-white rounded-lg shadow-md overflow-hidden">
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -305,7 +279,6 @@ try {
                 <?php foreach ($loans as $loan): 
                     $is_overdue = $loan['status'] === 'dipinjam' && strtotime($loan['due_date']) < time();
                     if ($is_overdue && $loan['status'] === 'dipinjam') {
-                        // Update status to terlambat
                         $update_query = "UPDATE loans SET status = 'terlambat' WHERE id = ?";
                         $update_stmt = $db->prepare($update_query);
                         $update_stmt->execute([$loan['id']]);
@@ -328,44 +301,44 @@ try {
                         <?php echo format_date($loan['loan_date']); ?>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <span class="<?php echo $is_overdue ? 'text-red-600 font-semibold' : ''; ?>">
+                        <span class="<?php echo $is_overdue ? 'text-rose-600 font-semibold' : ''; ?>">
                             <?php echo format_date($loan['due_date']); ?>
                         </span>
                         <?php if ($is_overdue): ?>
-                        <span class="ml-1 px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
+                        <span class="ml-1 px-2 py-1 text-xs bg-rose-100 text-rose-800 rounded-full">
                             <?php echo calculate_late_days($loan['due_date']); ?> hari terlambat
                         </span>
                         <?php endif; ?>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                              <?php echo $loan['status'] === 'dipinjam' ? 'bg-blue-100 text-blue-800' : 
-                                        ($loan['status'] === 'dikembalikan' ? 'bg-green-100 text-green-800' : 
-                                        ($loan['status'] === 'terlambat' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800')); ?>">
+                              <?php echo $loan['status'] === 'dipinjam' ? 'bg-indigo-100 text-indigo-800' : 
+                                        ($loan['status'] === 'dikembalikan' ? 'bg-emerald-100 text-emerald-800' : 
+                                        ($loan['status'] === 'terlambat' ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-800')); ?>">
                             <?php echo ucfirst($loan['status']); ?>
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div class="flex space-x-2">
                             <a href="loans.php?action=edit&id=<?php echo $loan['id']; ?>" 
-                               class="text-blue-600 hover:text-blue-900 <?php echo $loan['status'] === 'dikembalikan' ? 'opacity-50 cursor-not-allowed' : ''; ?>"
-                               <?php echo $loan['status'] === 'dikembalikan' ? 'onclick="return false;"' : ''; ?>>
+                               class="text-indigo-600 hover:text-indigo-900 <?php echo $loan['status'] === 'dikembalikan' ? 'opacity-50 cursor-not-allowed' : ''; ?>"
+                                <?php echo $loan['status'] === 'dikembalikan' ? 'onclick="return false;"' : ''; ?>>
                                 <i class="fas fa-edit"></i>
                             </a>
                             <a href="loans.php?action=view&id=<?php echo $loan['id']; ?>" 
-                               class="text-green-600 hover:text-green-900">
+                               class="text-emerald-600 hover:text-emerald-900">
                                 <i class="fas fa-eye"></i>
                             </a>
                             <?php if ($loan['status'] !== 'dikembalikan'): ?>
                             <a href="returns.php?action=add&loan_id=<?php echo $loan['id']; ?>" 
-                               class="text-purple-600 hover:text-purple-900">
+                               class="text-violet-600 hover:text-violet-900">
                                 <i class="fas fa-undo"></i>
                             </a>
                             <?php endif; ?>
                             <form method="POST" style="display: inline;" onsubmit="return confirmDelete('Apakah Anda yakin ingin menghapus data peminjaman ini?')">
                                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                 <input type="hidden" name="id" value="<?php echo $loan['id']; ?>">
-                                <button type="submit" name="delete" class="text-red-600 hover:text-red-900">
+                                <button type="submit" name="delete" class="text-rose-600 hover:text-rose-900">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>
@@ -378,7 +351,6 @@ try {
     </div>
 </div>
 
-<!-- Pagination -->
 <?php if ($pagination['total_pages'] > 1): ?>
 <div class="flex items-center justify-between mt-6">
     <div class="text-sm text-gray-700">
@@ -394,7 +366,7 @@ try {
         
         <?php for ($i = max(1, $page - 2); $i <= min($pagination['total_pages'], $page + 2); $i++): ?>
         <a href="loans.php?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status_filter); ?>" 
-           class="px-3 py-2 <?php echo $i == $page ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'; ?> rounded-lg hover:bg-blue-700 transition-colors">
+           class="px-3 py-2 <?php echo $i == $page ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'; ?> rounded-lg hover:bg-indigo-700 transition-colors">
             <?php echo $i; ?>
         </a>
         <?php endfor; ?>
@@ -410,7 +382,6 @@ try {
 <?php endif; ?>
 
 <?php elseif ($action === 'add' || $action === 'edit'): ?>
-<!-- Add/Edit Form -->
 <div class="bg-white rounded-lg shadow-md p-6">
     <h2 class="text-2xl font-bold text-gray-900 mb-6">
         <?php echo $action === 'add' ? 'Tambah Peminjaman Baru' : 'Edit Data Peminjaman'; ?>
@@ -425,7 +396,7 @@ try {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="user_id" class="block text-sm font-medium text-gray-700 mb-2">Peminjam *</label>
-                <select name="user_id" id="user_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <select name="user_id" id="user_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                     <option value="">Pilih Peminjam</option>
                     <?php foreach ($users_list as $user): ?>
                     <option value="<?php echo $user['id']; ?>" 
@@ -438,7 +409,7 @@ try {
             
             <div>
                 <label for="item_id" class="block text-sm font-medium text-gray-700 mb-2">Buku *</label>
-                <select name="item_id" id="item_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <select name="item_id" id="item_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                     <option value="">Pilih Buku</option>
                     <?php foreach ($items_list as $item): ?>
                     <option value="<?php echo $item['id']; ?>" 
@@ -455,7 +426,7 @@ try {
                        name="loan_date" 
                        id="loan_date" 
                        value="<?php echo $loan['loan_date'] ?? date('Y-m-d'); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                        required>
             </div>
             
@@ -465,7 +436,7 @@ try {
                        name="due_date" 
                        id="due_date" 
                        value="<?php echo $loan['due_date'] ?? date('Y-m-d', strtotime('+7 days')); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                        required>
             </div>
         </div>
@@ -475,7 +446,7 @@ try {
             <textarea name="notes" 
                       id="notes" 
                       rows="3"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Catatan tambahan untuk peminjaman ini..."><?php echo htmlspecialchars($loan['notes'] ?? ''); ?></textarea>
         </div>
         
@@ -485,7 +456,7 @@ try {
             </a>
             <button type="submit" 
                     name="<?php echo $action; ?>" 
-                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                 <i class="fas fa-save mr-2"></i><?php echo $action === 'add' ? 'Simpan' : 'Update'; ?>
             </button>
         </div>
@@ -493,9 +464,7 @@ try {
 </div>
 
 <?php elseif ($action === 'view' && $id): ?>
-<!-- View Loan Details -->
 <?php
-// Get loan details
 if (!$loan) {
     try {
         $query = "SELECT l.*, u.username, u.full_name, u.email, u.phone, i.title, i.barcode, i.author, i.isbn 
@@ -517,7 +486,6 @@ if (!$loan) {
     }
 }
 
-// Calculate late days if overdue
 $late_days = 0;
 if ($loan['status'] === 'dipinjam' || $loan['status'] === 'terlambat') {
     $late_days = calculate_late_days($loan['due_date']);
@@ -570,16 +538,16 @@ if ($loan['status'] === 'dipinjam' || $loan['status'] === 'terlambat') {
                 <h3 class="text-sm font-medium text-gray-500">Jatuh Tempo</h3>
                 <p class="mt-1 text-lg text-gray-900"><?php echo format_date($loan['due_date']); ?></p>
                 <?php if ($late_days > 0): ?>
-                <p class="text-sm text-red-600 font-semibold"><?php echo $late_days; ?> hari terlambat</p>
+                <p class="text-sm text-rose-600 font-semibold"><?php echo $late_days; ?> hari terlambat</p>
                 <?php endif; ?>
             </div>
             
             <div>
                 <h3 class="text-sm font-medium text-gray-500">Status</h3>
                 <span class="mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                      <?php echo $loan['status'] === 'dipinjam' ? 'bg-blue-100 text-blue-800' : 
-                                ($loan['status'] === 'dikembalikan' ? 'bg-green-100 text-green-800' : 
-                                ($loan['status'] === 'terlambat' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800')); ?>">
+                      <?php echo $loan['status'] === 'dipinjam' ? 'bg-indigo-100 text-indigo-800' : 
+                                ($loan['status'] === 'dikembalikan' ? 'bg-emerald-100 text-emerald-800' : 
+                                ($loan['status'] === 'terlambat' ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-800')); ?>">
                     <?php echo ucfirst($loan['status']); ?>
                 </span>
             </div>
@@ -603,11 +571,11 @@ if ($loan['status'] === 'dipinjam' || $loan['status'] === 'terlambat') {
     <div class="flex justify-end space-x-3 mt-8 pt-6 border-t">
         <?php if ($loan['status'] !== 'dikembalikan'): ?>
         <a href="loans.php?action=edit&id=<?php echo $loan['id']; ?>" 
-           class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+           class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
             <i class="fas fa-edit mr-2"></i>Edit
         </a>
         <a href="returns.php?action=add&loan_id=<?php echo $loan['id']; ?>" 
-           class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+           class="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
             <i class="fas fa-undo mr-2"></i>Proses Pengembalian
         </a>
         <?php endif; ?>

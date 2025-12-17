@@ -10,7 +10,6 @@ $action = $_GET['action'] ?? 'list';
 $id = $_GET['id'] ?? null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Validasi CSRF token
     if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
         set_flash_message('error', 'Token tidak valid');
         redirect('categories.php');
@@ -18,11 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     try {
         if (isset($_POST['add'])) {
-            // Add new category
             $name = sanitize_input($_POST['name']);
             $description = sanitize_input($_POST['description']);
             
-            // Cek duplikasi nama
             $check_query = "SELECT COUNT(*) FROM categories WHERE name = ?";
             $check_stmt = $db->prepare($check_query);
             $check_stmt->execute([$name]);
@@ -60,10 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             set_flash_message('success', 'Kategori berhasil diperbarui');
             
         } elseif (isset($_POST['delete'])) {
-            // Delete category
             $id = (int)$_POST['id'];
             
-            // Cek apakah kategori masih digunakan
             $check_query = "SELECT COUNT(*) FROM items WHERE category_id = ? AND is_active = 1";
             $check_stmt = $db->prepare($check_query);
             $check_stmt->execute([$id]);
@@ -151,7 +146,6 @@ try {
 </div>
 
 <?php if ($action === 'list'): ?>
-<!-- Search -->
 <div class="bg-white rounded-lg shadow-md p-6 mb-6">
     <form method="GET" class="flex gap-4">
         <div class="flex-1">
@@ -159,9 +153,9 @@ try {
                    name="search" 
                    placeholder="Cari kategori..." 
                    value="<?php echo htmlspecialchars($search); ?>"
-                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
         </div>
-        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
             <i class="fas fa-search mr-2"></i>Cari
         </button>
         <a href="categories.php" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
@@ -170,17 +164,15 @@ try {
     </form>
 </div>
 
-<!-- Action Buttons -->
 <div class="flex justify-between items-center mb-6">
     <div class="text-sm text-gray-600">
         Menampilkan <?php echo count($categories); ?> dari <?php echo number_format($total_items); ?> kategori
     </div>
-    <a href="categories.php?action=add" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+    <a href="categories.php?action=add" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
         <i class="fas fa-plus mr-2"></i>Tambah Kategori
     </a>
 </div>
 
-<!-- Categories Table -->
 <div class="bg-white rounded-lg shadow-md overflow-hidden">
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -204,7 +196,7 @@ try {
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">
                             <?php echo $category['book_count']; ?> buku
                         </span>
                     </td>
@@ -213,7 +205,7 @@ try {
                             <form method="POST" style="display: inline;" onsubmit="return confirmDelete('Apakah Anda yakin ingin menghapus kategori ini?')">
                                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                 <input type="hidden" name="id" value="<?php echo $category['id']; ?>">
-                                <button type="submit" name="delete" class="text-red-600 hover:text-red-900">
+                                <button type="submit" name="delete" class="text-rose-600 hover:text-rose-900">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>
@@ -226,7 +218,6 @@ try {
     </div>
 </div>
 
-<!-- Pagination -->
 <?php if ($pagination['total_pages'] > 1): ?>
 <div class="flex items-center justify-between mt-6">
     <div class="text-sm text-gray-700">
@@ -242,7 +233,7 @@ try {
         
         <?php for ($i = max(1, $page - 2); $i <= min($pagination['total_pages'], $page + 2); $i++): ?>
         <a href="categories.php?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>" 
-           class="px-3 py-2 <?php echo $i == $page ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'; ?> rounded-lg hover:bg-blue-700 transition-colors">
+           class="px-3 py-2 <?php echo $i == $page ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'; ?> rounded-lg hover:bg-indigo-700 transition-colors">
             <?php echo $i; ?>
         </a>
         <?php endfor; ?>
@@ -258,7 +249,6 @@ try {
 <?php endif; ?>
 
 <?php elseif ($action === 'add' || $action === 'edit'): ?>
-<!-- Add/Edit Form -->
 <div class="bg-white rounded-lg shadow-md p-6">
     <h2 class="text-2xl font-bold text-gray-900 mb-6">
         <?php echo $action === 'add' ? 'Tambah Kategori Baru' : 'Edit Kategori'; ?>
@@ -276,7 +266,7 @@ try {
                    name="name" 
                    id="name" 
                    value="<?php echo htmlspecialchars($current_category['name'] ?? ''); ?>"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                    required
                    placeholder="Masukkan nama kategori">
         </div>
@@ -286,7 +276,7 @@ try {
             <textarea name="description" 
                       id="description" 
                       rows="4"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Deskripsi singkat tentang kategori ini..."><?php echo htmlspecialchars($current_category['description'] ?? ''); ?></textarea>
         </div>
         
@@ -296,7 +286,7 @@ try {
             </a>
             <button type="submit" 
                     name="<?php echo $action; ?>" 
-                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                 <i class="fas fa-save mr-2"></i><?php echo $action === 'add' ? 'Simpan' : 'Update'; ?>
             </button>
         </div>

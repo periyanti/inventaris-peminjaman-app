@@ -2,12 +2,15 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/auth.php';
 
-// Fungsi untuk validasi email
+function redirect($url) {
+    header("Location: " . $url);
+    exit;
+}
+
 function is_valid_email($email) {
     return filter_var($email, FILTER_VALIDATE_EMAIL);
 }
 
-// Fungsi untuk generate CSRF token
 function generate_csrf_token() {
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -24,7 +27,6 @@ function sanitize_input($data) {
     return htmlspecialchars(trim($data), ENT_QUOTES, 'UTF-8');
 }
 
-// Fungsi untuk flash messages
 function set_flash_message($type, $message) {
     $_SESSION['flash_message'] = [
         'type' => $type,
@@ -44,40 +46,34 @@ function get_flash_message() {
 function show_flash_message() {
     $message = get_flash_message();
     if ($message) {
-        $alert_class = $message['type'] === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700';
+        $alert_class = $message['type'] === 'success' ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'bg-rose-100 border-rose-400 text-rose-700';
         echo '<div class="border px-4 py-3 rounded relative mb-4 ' . $alert_class . '" role="alert">';
         echo '<span class="block sm:inline">' . htmlspecialchars($message['message']) . '</span>';
         echo '</div>';
     }
 }
 
-// Fungsi untuk cek login
 function is_logged_in() {
     return isset($_SESSION['user_id']);
 }
 
-// Fungsi untuk cek role
 function has_role($role) {
     if (!is_logged_in()) return false;
     return isset($_SESSION['user_role']) && $_SESSION['user_role'] === $role;
 }
 
-// Fungsi untuk generate barcode
 function generate_barcode() {
     return 'BK' . str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
 }
 
-// Fungsi untuk format tanggal
 function format_date($date) {
     return date('d/m/Y', strtotime($date));
 }
 
-// Fungsi untuk format rupiah
 function format_rupiah($amount) {
     return 'Rp ' . number_format($amount, 0, ',', '.');
 }
 
-// Fungsi untuk menghitung hari terlambat
 function calculate_late_days($due_date, $return_date = null) {
     $due = new DateTime($due_date);
     $return = $return_date ? new DateTime($return_date) : new DateTime();
@@ -117,8 +113,6 @@ function log_activity($action, $table_affected = null, $record_id = null, $descr
     ]);
 }
 
-
-// Fungsi untuk pagination
 function get_pagination($total_items, $current_page, $items_per_page = ITEMS_PER_PAGE) {
     $total_pages = ceil($total_items / $items_per_page);
     $offset = ($current_page - 1) * $items_per_page;
@@ -130,7 +124,6 @@ function get_pagination($total_items, $current_page, $items_per_page = ITEMS_PER
     ];
 }
 
-// Fungsi untuk upload file
 function upload_file($file, $upload_dir = UPLOAD_PATH) {
     if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
         return ['success' => false, 'message' => 'Upload gagal'];

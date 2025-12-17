@@ -18,9 +18,7 @@ $db = $database->getConnection();
 $action = $_GET['action'] ?? 'list';
 $id = $_GET['id'] ?? null;
 
-// PROCESS FORM SUBMISSIONS - USING SIMPLE LOGIC THAT WORKS
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Verify CSRF token
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         $_SESSION['error'] = 'Token tidak valid';
         header('Location: items.php');
@@ -28,7 +26,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // ADD BOOK
         if (isset($_POST['add_book'])) {
             $barcode = $_POST['barcode'] ?: generate_barcode();
             $title = sanitize_input($_POST['title']);
@@ -44,7 +41,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $purchase_date = !empty($_POST['purchase_date']) ? $_POST['purchase_date'] : null;
             $purchase_price = !empty($_POST['purchase_price']) ? (float)$_POST['purchase_price'] : null;
 
-            // Validation
             if (empty($title) || empty($author) || empty($category_id)) {
                 throw new Exception('Judul, penulis, dan kategori harus diisi');
             }
@@ -71,7 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Gagal menambahkan buku');
             }
 
-        // UPDATE BOOK
         } elseif (isset($_POST['update_book'])) {
             $id = (int)$_POST['id'];
             $barcode = $_POST['barcode'];
@@ -88,7 +83,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $purchase_date = !empty($_POST['purchase_date']) ? $_POST['purchase_date'] : null;
             $purchase_price = !empty($_POST['purchase_price']) ? (float)$_POST['purchase_price'] : null;
 
-            // Validation
             if (empty($title) || empty($author) || empty($category_id)) {
                 throw new Exception('Judul, penulis, dan kategori harus diisi');
             }
@@ -115,11 +109,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Gagal memperbarui buku');
             }
 
-        // DELETE BOOK
         } elseif (isset($_POST['delete_book'])) {
             $id = (int)$_POST['id'];
 
-            // Check if book is currently borrowed
             $check_query = "SELECT COUNT(*) FROM loans WHERE item_id = ? AND status = 'dipinjam'";
             $check_stmt = $db->prepare($check_query);
             $check_stmt->execute([$id]);
@@ -149,7 +141,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// GET DATA FOR DISPLAY - USING ORIGINAL CODE
 $categories = [];
 $suppliers = [];
 
@@ -162,10 +153,8 @@ try {
     $stmt->execute();
     $suppliers = $stmt->fetchAll();
 } catch (PDOException $e) {
-    // Silent error for data loading
 }
 
-// Get single item for edit/view
 $item = null;
 if (($action === 'edit' || $action === 'view') && $id) {
     try {
@@ -190,7 +179,6 @@ if (($action === 'edit' || $action === 'view') && $id) {
     }
 }
 
-// Pagination untuk list view
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $search = $_GET['search'] ?? '';
 $category_filter = $_GET['category'] ?? '';
@@ -212,7 +200,6 @@ if ($category_filter) {
 
 $where_clause = implode(" AND ", $where_conditions);
 
-// Count total items
 try {
     $count_query = "SELECT COUNT(*) as total FROM items i WHERE $where_clause";
     $count_stmt = $db->prepare($count_query);
@@ -221,7 +208,6 @@ try {
     
     $pagination = get_pagination($total_items, $page, $items_per_page);
     
-    // Get items for current page
     $query = "SELECT i.*, c.name as category_name, s.name as supplier_name 
               FROM items i 
               LEFT JOIN categories c ON i.category_id = c.id 
@@ -240,7 +226,6 @@ try {
     $pagination = ['total_pages' => 1, 'offset' => 0];
 }
 
-// Get flash messages from session
 $success_msg = isset($_SESSION['success']) ? $_SESSION['success'] : '';
 $error_msg = isset($_SESSION['error']) ? $_SESSION['error'] : '';
 unset($_SESSION['success']);
@@ -252,21 +237,19 @@ unset($_SESSION['error']);
     <p class="text-gray-600 mt-1">Kelola data buku dalam perpustakaan</p>
 </div>
 
-<!-- Custom Flash Messages -->
 <?php if ($success_msg): ?>
-<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4" role="alert">
+<div class="bg-emerald-100 border border-emerald-400 text-emerald-700 px-4 py-3 rounded mb-4" role="alert">
     <span class="block sm:inline"><?php echo htmlspecialchars($success_msg); ?></span>
 </div>
 <?php endif; ?>
 
 <?php if ($error_msg): ?>
-<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+<div class="bg-rose-100 border border-rose-400 text-rose-700 px-4 py-3 rounded mb-4" role="alert">
     <span class="block sm:inline"><?php echo htmlspecialchars($error_msg); ?></span>
 </div>
 <?php endif; ?>
 
 <?php if ($action === 'list'): ?>
-<!-- Search and Filter -->
 <div class="bg-white rounded-lg shadow-md p-6 mb-6">
     <form method="GET" class="flex flex-wrap gap-4">
         <div class="flex-1 min-w-48">
@@ -274,10 +257,10 @@ unset($_SESSION['error']);
                    name="search" 
                    placeholder="Cari berdasarkan judul, penulis, atau barcode..." 
                    value="<?php echo htmlspecialchars($search); ?>"
-                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
         </div>
         <div class="min-w-32">
-            <select name="category" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <select name="category" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                 <option value="">Semua Kategori</option>
                 <?php foreach ($categories as $category): ?>
                 <option value="<?php echo $category['id']; ?>" <?php echo $category_filter == $category['id'] ? 'selected' : ''; ?>>
@@ -286,7 +269,7 @@ unset($_SESSION['error']);
                 <?php endforeach; ?>
             </select>
         </div>
-        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
             <i class="fas fa-search mr-2"></i>Cari
         </button>
         <a href="items.php" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
@@ -295,17 +278,15 @@ unset($_SESSION['error']);
     </form>
 </div>
 
-<!-- Action Buttons -->
 <div class="flex justify-between items-center mb-6">
     <div class="text-sm text-gray-600">
         Menampilkan <?php echo count($items); ?> dari <?php echo number_format($total_items); ?> buku
     </div>
-    <a href="items.php?action=add" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+    <a href="items.php?action=add" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
         <i class="fas fa-plus mr-2"></i>Tambah Buku
     </a>
 </div>
 
-<!-- Items Table -->
 <div class="bg-white rounded-lg shadow-md overflow-hidden">
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -350,24 +331,24 @@ unset($_SESSION['error']);
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                              <?php echo $item['quantity_available'] > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                              <?php echo $item['quantity_available'] > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'; ?>">
                             <?php echo $item['quantity_available']; ?> tersedia
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div class="flex space-x-2">
                             <a href="items.php?action=edit&id=<?php echo $item['id']; ?>" 
-                               class="text-blue-600 hover:text-blue-900" title="Edit">
+                               class="text-indigo-600 hover:text-indigo-900" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </a>
                             <a href="items.php?action=view&id=<?php echo $item['id']; ?>" 
-                               class="text-green-600 hover:text-green-900" title="View">
+                               class="text-emerald-600 hover:text-emerald-900" title="View">
                                 <i class="fas fa-eye"></i>
                             </a>
                             <form method="POST" style="display: inline;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus buku ini?')">
                                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                 <input type="hidden" name="id" value="<?php echo $item['id']; ?>">
-                                <button type="submit" name="delete_book" class="text-red-600 hover:text-red-900" title="Delete">
+                                <button type="submit" name="delete_book" class="text-rose-600 hover:text-rose-900" title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>
@@ -381,7 +362,6 @@ unset($_SESSION['error']);
     </div>
 </div>
 
-<!-- Pagination -->
 <?php if ($pagination['total_pages'] > 1): ?>
 <div class="flex items-center justify-between mt-6">
     <div class="text-sm text-gray-700">
@@ -397,7 +377,7 @@ unset($_SESSION['error']);
         
         <?php for ($i = max(1, $page - 2); $i <= min($pagination['total_pages'], $page + 2); $i++): ?>
         <a href="items.php?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&category=<?php echo urlencode($category_filter); ?>" 
-           class="px-3 py-2 <?php echo $i == $page ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'; ?> rounded-lg hover:bg-blue-700 transition-colors">
+           class="px-3 py-2 <?php echo $i == $page ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'; ?> rounded-lg hover:bg-indigo-700 transition-colors">
             <?php echo $i; ?>
         </a>
         <?php endfor; ?>
@@ -413,7 +393,6 @@ unset($_SESSION['error']);
 <?php endif; ?>
 
 <?php elseif ($action === 'add' || $action === 'edit'): ?>
-<!-- Add/Edit Form -->
 <div class="bg-white rounded-lg shadow-md p-6">
     <h2 class="text-2xl font-bold text-gray-900 mb-6">
         <?php echo $action === 'add' ? 'Tambah Buku Baru' : 'Edit Buku'; ?>
@@ -432,7 +411,7 @@ unset($_SESSION['error']);
                        name="barcode" 
                        id="barcode" 
                        value="<?php echo htmlspecialchars($item['barcode'] ?? generate_barcode()); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                        required>
             </div>
             
@@ -442,7 +421,7 @@ unset($_SESSION['error']);
                        name="isbn" 
                        id="isbn" 
                        value="<?php echo htmlspecialchars($item['isbn'] ?? ''); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
             </div>
             
             <div class="md:col-span-2">
@@ -451,7 +430,7 @@ unset($_SESSION['error']);
                        name="title" 
                        id="title" 
                        value="<?php echo htmlspecialchars($item['title'] ?? ''); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                        required>
             </div>
             
@@ -461,13 +440,13 @@ unset($_SESSION['error']);
                        name="author" 
                        id="author" 
                        value="<?php echo htmlspecialchars($item['author'] ?? ''); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                        required>
             </div>
             
             <div>
                 <label for="category_id" class="block text-sm font-medium text-gray-700 mb-2">Kategori *</label>
-                <select name="category_id" id="category_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <select name="category_id" id="category_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                     <option value="">Pilih Kategori</option>
                     <?php foreach ($categories as $category): ?>
                     <option value="<?php echo $category['id']; ?>" 
@@ -480,7 +459,7 @@ unset($_SESSION['error']);
             
             <div>
                 <label for="supplier_id" class="block text-sm font-medium text-gray-700 mb-2">Supplier</label>
-                <select name="supplier_id" id="supplier_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <select name="supplier_id" id="supplier_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                     <option value="">Pilih Supplier</option>
                     <?php foreach ($suppliers as $supplier): ?>
                     <option value="<?php echo $supplier['id']; ?>" 
@@ -498,7 +477,7 @@ unset($_SESSION['error']);
                        id="quantity_total" 
                        value="<?php echo $item['quantity_total'] ?? 1; ?>"
                        min="1"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                        required>
             </div>
             
@@ -509,7 +488,7 @@ unset($_SESSION['error']);
                        id="quantity_available" 
                        value="<?php echo $item['quantity_available'] ?? 1; ?>"
                        min="0"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                        required>
             </div>
             
@@ -519,12 +498,12 @@ unset($_SESSION['error']);
                        name="location" 
                        id="location" 
                        value="<?php echo htmlspecialchars($item['location'] ?? ''); ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
             </div>
             
             <div>
                 <label for="condition" class="block text-sm font-medium text-gray-700 mb-2">Kondisi</label>
-                <select name="condition" id="condition" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <select name="condition" id="condition" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                     <option value="baru" <?php echo ($item['item_condition'] ?? '') === 'baru' ? 'selected' : ''; ?>>Baru</option>
                     <option value="baik" <?php echo ($item['item_condition'] ?? '') === 'baik' ? 'selected' : ''; ?>>Baik</option>
                     <option value="rusak_ringan" <?php echo ($item['item_condition'] ?? '') === 'rusak_ringan' ? 'selected' : ''; ?>>Rusak Ringan</option>
@@ -538,7 +517,7 @@ unset($_SESSION['error']);
                        name="purchase_date" 
                        id="purchase_date" 
                        value="<?php echo $item['purchase_date'] ?? ''; ?>"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
             </div>
             
             <div>
@@ -548,7 +527,7 @@ unset($_SESSION['error']);
                        id="purchase_price" 
                        value="<?php echo $item['purchase_price'] ?? ''; ?>"
                        step="0.01"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
             </div>
         </div>
         
@@ -557,7 +536,7 @@ unset($_SESSION['error']);
             <textarea name="description" 
                       id="description" 
                       rows="4"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Deskripsi singkat tentang buku ini..."><?php echo htmlspecialchars($item['description'] ?? ''); ?></textarea>
         </div>
         
@@ -567,7 +546,7 @@ unset($_SESSION['error']);
             </a>
             <button type="submit" 
                     name="<?php echo $action === 'add' ? 'add_book' : 'update_book'; ?>" 
-                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                 <i class="fas fa-save mr-2"></i><?php echo $action === 'add' ? 'Simpan' : 'Update'; ?>
             </button>
         </div>
@@ -575,9 +554,7 @@ unset($_SESSION['error']);
 </div>
 
 <?php elseif ($action === 'view' && $id): ?>
-<!-- View Item Details -->
 <?php
-// Get item details if not already loaded
 if (!$item) {
     try {
         $query = "SELECT i.*, c.name as category_name, s.name as supplier_name 
@@ -648,15 +625,15 @@ if (!$item) {
                 <h3 class="text-sm font-medium text-gray-500">Stok</h3>
                 <div class="mt-1 flex space-x-4">
                     <div class="text-center">
-                        <p class="text-2xl font-bold text-blue-600"><?php echo $item['quantity_total']; ?></p>
+                        <p class="text-2xl font-bold text-indigo-600"><?php echo $item['quantity_total']; ?></p>
                         <p class="text-xs text-gray-500">Total</p>
                     </div>
                     <div class="text-center">
-                        <p class="text-2xl font-bold text-green-600"><?php echo $item['quantity_available']; ?></p>
+                        <p class="text-2xl font-bold text-emerald-600"><?php echo $item['quantity_available']; ?></p>
                         <p class="text-xs text-gray-500">Tersedia</p>
                     </div>
                     <div class="text-center">
-                        <p class="text-2xl font-bold text-red-600"><?php echo $item['quantity_total'] - $item['quantity_available']; ?></p>
+                        <p class="text-2xl font-bold text-rose-600"><?php echo $item['quantity_total'] - $item['quantity_available']; ?></p>
                         <p class="text-xs text-gray-500">Dipinjam</p>
                     </div>
                 </div>
@@ -670,9 +647,9 @@ if (!$item) {
             <div>
                 <h3 class="text-sm font-medium text-gray-500">Kondisi</h3>
                 <span class="mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                      <?php echo $item['item_condition'] === 'baru' ? 'bg-green-100 text-green-800' : 
-                                ($item['item_condition'] === 'baik' ? 'bg-blue-100 text-blue-800' : 
-                                ($item['item_condition'] === 'rusak_ringan' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800')); ?>">
+                      <?php echo $item['item_condition'] === 'baru' ? 'bg-emerald-100 text-emerald-800' : 
+                                ($item['item_condition'] === 'baik' ? 'bg-indigo-100 text-indigo-800' : 
+                                ($item['item_condition'] === 'rusak_ringan' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800')); ?>">
                     <?php echo ucfirst(str_replace('_', ' ', $item['item_condition'])); ?>
                 </span>
             </div>
@@ -700,7 +677,7 @@ if (!$item) {
     
     <div class="flex justify-end space-x-3 mt-8 pt-6 border-t">
         <a href="items.php?action=edit&id=<?php echo $item['id']; ?>" 
-           class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+           class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
             <i class="fas fa-edit mr-2"></i>Edit
         </a>
         <a href="items.php" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">

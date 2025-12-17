@@ -4,12 +4,10 @@ require_once 'config/config.php';
 require_once 'includes/auth.php';
 require_once 'includes/functions.php';
 
-// Generate CSRF token pertama kali
 if (empty($_SESSION['csrf_token'])) {
     generate_csrf_token();
 }
 
-// Redirect jika sudah login
 if (is_logged_in()) {
     redirect('index.php');
 }
@@ -17,10 +15,8 @@ if (is_logged_in()) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Validasi CSRF token
     if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
         $error = 'Token tidak valid - Silakan refresh halaman dan coba lagi';
-        // Regenerate token untuk request berikutnya
         generate_csrf_token();
     } else {
         $username = sanitize_input($_POST['username'] ?? '');
@@ -41,12 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        // Regenerate CSRF token setelah POST request berhasil diproses
         generate_csrf_token();
     }
 }
 
-// Pastikan token selalu ada untuk form
 $csrf_token = generate_csrf_token();
 ?>
 <!DOCTYPE html>
@@ -59,7 +53,7 @@ $csrf_token = generate_csrf_token();
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #4f46e5 0%, #0d9488 100%);
         }
         .card-hover {
             transition: all 0.3s ease;
@@ -79,16 +73,14 @@ $csrf_token = generate_csrf_token();
 </head>
 <body class="gradient-bg min-h-screen flex items-center justify-center p-4">
     <div class="animate-fade-in w-full max-w-md">
-        <!-- Logo/Header -->
         <div class="text-center mb-8">
             <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg mb-4">
-                <i class="fas fa-book text-3xl text-blue-600"></i>
+                <i class="fas fa-book text-3xl text-indigo-600"></i>
             </div>
             <h1 class="text-3xl font-bold text-white mb-2"><?php echo APP_NAME; ?></h1>
-            <p class="text-blue-100">Sistem Inventaris Peminjaman Perpustakaan</p>
+            <p class="text-indigo-100">Sistem Inventaris Peminjaman Perpustakaan</p>
         </div>
 
-        <!-- Login Card -->
         <div class="card-hover bg-white rounded-2xl shadow-xl overflow-hidden">
             <div class="p-8">
                 <div class="text-center mb-6">
@@ -117,7 +109,7 @@ $csrf_token = generate_csrf_token();
                                    name="username" 
                                    id="username" 
                                    required 
-                                   class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                    placeholder="Masukkan username atau email"
                                    value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
                         </div>
@@ -135,7 +127,7 @@ $csrf_token = generate_csrf_token();
                                    name="password" 
                                    id="password" 
                                    required 
-                                   class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                    placeholder="Masukkan password">
                         </div>
                     </div>
@@ -145,20 +137,20 @@ $csrf_token = generate_csrf_token();
                             <input id="remember_me" 
                                    name="remember_me" 
                                    type="checkbox" 
-                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                   class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
                             <label for="remember_me" class="ml-2 block text-sm text-gray-700">
                                 Ingat saya
                             </label>
                         </div>
                         <div class="text-sm">
-                            <a href="forgot_password.php" class="font-medium text-blue-600 hover:text-blue-500">
+                            <a href="forgot_password.php" class="font-medium text-indigo-600 hover:text-indigo-500">
                                 Lupa password?
                             </a>
                         </div>
                     </div>
 
                     <button type="submit" 
-                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
                         <i class="fas fa-sign-in-alt mr-2"></i>
                         Login
                     </button>
@@ -167,33 +159,22 @@ $csrf_token = generate_csrf_token();
                 <div class="mt-6 text-center">
                     <p class="text-sm text-gray-600">
                         Belum punya akun? 
-                        <a href="register.php" class="font-medium text-blue-600 hover:text-blue-500">
+                        <a href="register.php" class="font-medium text-indigo-600 hover:text-indigo-500">
                             Daftar di sini
                         </a>
                     </p>
                 </div>
-
-                <!-- Demo Accounts -->
-                <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <h3 class="text-sm font-medium text-gray-700 mb-2">Akun Demo:</h3>
-                    <div class="text-xs text-gray-600 space-y-1">
-                        <p><strong>Admin:</strong> admin / password</p>
-                        <p><strong>User:</strong> user / password</p>
-                    </div>
-                </div>
             </div>
         </div>
 
-        <!-- Footer -->
         <div class="text-center mt-6">
-            <p class="text-sm text-blue-100">
+            <p class="text-sm text-indigo-100">
                 © <?php echo date('Y'); ?> <?php echo APP_NAME; ?>. All rights reserved.
             </p>
         </div>
     </div>
 
     <script>
-        // Form validation
         document.querySelector('form').addEventListener('submit', function(e) {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
@@ -205,7 +186,6 @@ $csrf_token = generate_csrf_token();
             }
         });
 
-        // Auto submit on Enter key in password field
         document.getElementById('password').addEventListener('keyup', function(e) {
             if (e.key === 'Enter') {
                 document.querySelector('form').submit();
