@@ -1,6 +1,6 @@
 # 📦 Sistem Manajemen Inventaris & Peminjaman
 
-Kelompok 2 – Pemrograman Web
+Kelompok 7 – Pemrograman Web
 
 ## 📌 Deskripsi Proyek
 
